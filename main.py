@@ -12,6 +12,7 @@ CAMERA_HEIGHT = 240
 CONF_THRESH = 0.25
 LABEL_CONF_THRESH = 0.6
 STATUS_CONF_THRESH = 0.85
+CAM_URL = "http://10.238.183.49:81/stream"
 
 POMODORO_CONF = {
     "work_time": 25 * 60,
@@ -88,13 +89,13 @@ def main():
     servo = MoveServo(pin=SERVO_PIN)
     preload_images()
 
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(CAM_URL)
     # Set resolusi kamera (opsional, sesuaikan kemampuan webcam)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
 
     if not cap.isOpened():
-        raise RuntimeError("Cannot open webcam (index 0).")
+        raise RuntimeError("Cannot open webcam in cam url.")
     print("Camera setted")
 
     cv_classifier = BotClassifier(cap=cap)
