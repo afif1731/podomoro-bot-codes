@@ -2,9 +2,9 @@ import cv2
 import time
 import threading
 
-from servo.mover import MoveServo
-from expression.display_face import preload_images, display_face_fast
-from cv.classifier import BotClassifier, inference_worker
+from src.servo.mover import MoveServo
+from src.expression.display_face import preload_images, display_face_fast
+from src.cv.classifier import BotClassifier, inference_worker
 
 SERVO_PIN = 18
 CAMERA_WIDTH = 240
