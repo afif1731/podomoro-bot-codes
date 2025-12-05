@@ -8,6 +8,8 @@ dependencies = [
     "adafruit-blinka>=8.68.0",
     "adafruit-circuitpython-rgb-display>=3.14.3",
     "lgpio",
+    "luma",
+    "luma-lcd",
     "pandas>=2.3.3",
     "pillow>=12.0.0",
     "rpi-lgpio",

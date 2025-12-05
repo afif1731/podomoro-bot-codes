@@ -6,7 +6,7 @@ from src.servo.mover import MoveServo
 from src.expression.display_face import preload_images, display_face_fast
 from src.cv.classifier import BotClassifier, inference_worker
 
-SERVO_PIN = 18
+SERVO_PIN = 17
 CAMERA_WIDTH = 240
 CAMERA_HEIGHT = 240
 CONF_THRESH = 0.25

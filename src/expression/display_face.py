@@ -1,83 +1,92 @@
 import os
-import digitalio
-import board
+import RPi.GPIO as GPIO
 from PIL import Image, ImageOps
-from adafruit_rgb_display.st7789 import ST7789
+from luma.core.interface.serial import spi
+from luma.lcd.device import st7789
 
 from expression_config import FACE_MAPPING
 
-cs_pin = digitalio.DigitalInOut(board.CE0)
-dc_pin = digitalio.DigitalInOut(board.D25)
-reset_pin = digitalio.DigitalInOut(board.D24)
-spi = board.SPI()
-BAUDRATE = 64000000
+serial = spi(port=0, device=0, gpio_DC=25, gpio_RST=24, speed_hz=24000000)
+device = st7789(serial, width=240, height=240, rotate=0)
 
-# Setup driver (ST7789/GC9A01)
-disp = ST7789(
-    spi,
-    cs=cs_pin,
-    dc=dc_pin,
-    rst=reset_pin,
-    baudrate=BAUDRATE,
-    width=240,
-    height=240,
-    x_offset=0,
-    y_offset=0
-)
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(18, GPIO.OUT)
+GPIO.output(18, GPIO.HIGH)
 
-CACHE_IMAGES = {}
+IMAGE_CACHE = {}
 
 # Panggil ini waktu setup bot!
 def preload_images():
-    print("Memuat aset ke RAM...")
-    for f_id, f_path in FACE_MAPPING.items():
-        if os.path.exists(f_path):
-            img = Image.open(f_path)
-            img_processed = ImageOps.fit(img, (disp.width, disp.height), method=Image.LANCZOS)
-            CACHE_IMAGES[f_id] = img_processed
-        else:
-            print(f"Warning: {f_path} hilang.")
-    print("Selesai memuat aset.")
+    """
+    Membaca semua file di FACE_MAPPING, melakukan resize/fitting,
+    dan menyimpannya ke dictionary IMAGE_CACHE di RAM.
+    """
+    print("--- Memulai Preload Aset ---")
+    
+    for face_id, file_path in FACE_MAPPING.items():
+        # Cek apakah file ada
+        if not os.path.exists(file_path):
+            print(f"[SKIP] File tidak ditemukan: {file_path}")
+            continue
+            
+        try:
+            # 1. Buka Gambar
+            img = Image.open(file_path).convert("RGB")
+            
+            # 2. Proses Resize/Fit SEKARANG (bukan saat ditampilkan nanti)
+            # Menggunakan LANCZOS agar halus untuk wajah/foto.
+            # Jika ini Pixel Art murni, ganti Image.LANCZOS dengan Image.NEAREST
+            img_processed = ImageOps.fit(
+                img, 
+                (device.width, device.height), 
+                method=Image.LANCZOS, 
+                centering=(0.5, 0.5)
+            )
+            
+            # 3. Simpan ke RAM
+            IMAGE_CACHE[face_id] = img_processed
+            print(f"[OK] Berhasil memuat: {face_id}")
+            
+        except Exception as e:
+            print(f"[ERROR] Gagal memuat {face_id}: {e}")
+            
+    print(f"--- Preload Selesai. Total: {len(IMAGE_CACHE)} gambar ---")
 
 def display_face_fast(face_id):
     """
-    Menampilkan gambar berdasarkan ID yang ada di FACE_MAPPING.
-    Otomatis resize dan center crop agar pas di layar.
+    Menampilkan gambar dari RAM. Sangat cepat.
     """
-
-    if face_id in CACHE_IMAGES:
-        disp.image(CACHE_IMAGES[face_id])
+    # Cek apakah ID ada di Cache
+    if face_id in IMAGE_CACHE:
+        # Langsung kirim data memori ke layar
+        device.display(IMAGE_CACHE[face_id])
     else:
-        print(f"ID {face_id} belum di-preload.")
+        print(f"Warning: ID '{face_id}' tidak ditemukan di Cache atau gagal dimuat.")
 
 def display_face(face_id):
     """
-    Menampilkan gambar berdasarkan ID yang ada di FACE_MAPPING.
-    Otomatis resize dan center crop agar pas di layar.
+    Menampilkan wajah dari mapping ID dengan smart fitting
     """
-    
     if face_id not in FACE_MAPPING:
-        print(f"Error: ID '{face_id}' tidak ditemukan di mapping.")
+        print(f"ID {face_id} tidak dikenal.")
         return
 
-    img_path = FACE_MAPPING[face_id]
-
-    if not os.path.exists(img_path):
-        print(f"Error: File tidak ditemukan di {img_path}")
-        return
-
+    path = FACE_MAPPING[face_id]
+    
     try:
-        image = Image.open(img_path)
-
-        image_fitted = ImageOps.fit(
-            image, 
-            (disp.width, disp.height), 
-            method=Image.LANCZOS, 
+        img = Image.open(path).convert("RGB")
+        
+        # ImageOps.fit sangat berguna untuk mengisi layar penuh tanpa gepeng
+        # method=Image.LANCZOS untuk hasil halus (foto/wajah)
+        img_fitted = ImageOps.fit(
+            img, 
+            (device.width, device.height), 
+            method=Image.LANCZOS,
             centering=(0.5, 0.5)
         )
-
-        disp.image(image_fitted)
-        print(f"Menampilkan: {face_id}")
-
+        
+        device.display(img_fitted)
+        print(f"Wajah: {face_id}")
+        
     except Exception as e:
-        print(f"Gagal memuat gambar: {e}")
+        print(f"Error Face: {e}")
