@@ -5,7 +5,12 @@ description = "Podomoro Bot Codes"
 readme = "README.md"
 requires-python = "==3.11.13"
 dependencies = [
+    "adafruit-blinka>=8.68.0",
+    "adafruit-circuitpython-rgb-display>=3.14.3",
+    "lgpio",
     "pandas>=2.3.3",
+    "pillow>=12.0.0",
+    "rpi-lgpio",
     "torch>=2.9.0",
     "torchvision>=0.24.0",
     "ultralytics>=8.3.216",
