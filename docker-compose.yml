@@ -5,9 +5,9 @@ services:
       dockerfile: Dockerfile
     container_name: har_inference_container
     ports:
-      - "8000:8000"
+      - "${DOCKER_EXPOSE_PORT}:8000"
     volumes:
       - ./:/app/external
-    environment:
-      - PYTHONUNBUFFERED=1
+    env_file:
+      - .env
     restart: no

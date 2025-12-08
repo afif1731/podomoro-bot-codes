@@ -1,10 +1,14 @@
+import os
 import cv2
 import time
 import threading
 
+from dotenv import load_dotenv
 from src.servo.mover import MoveServo
 from src.expression.display_face import preload_images, display_face_fast
 from src.cv.classifier import BotClassifier, inference_worker
+
+load_dotenv()
 
 SERVO_PIN = 17
 CAMERA_WIDTH = 240
@@ -12,7 +16,7 @@ CAMERA_HEIGHT = 240
 CONF_THRESH = 0.25
 LABEL_CONF_THRESH = 0.6
 STATUS_CONF_THRESH = 0.85
-CAM_URL = "http://10.238.183.49:81/stream"
+CAM_URL = os.getenv("CAM_URL", "http://10.238.183.49:81/stream")
 
 POMODORO_CONF = {
     "work_time": 25 * 60,

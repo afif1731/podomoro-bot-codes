@@ -6,16 +6,19 @@ import threading
 import queue
 import json
 from collections import deque
+from dotenv import load_dotenv
 from websocket import create_connection 
 
 from classifier_helper import determine_final_status
+
+load_dotenv()
 
 # -------- CONFIG --------
 DETECT_EVERY_N_FRAMES = 5
 HISTORY_SIZE = 5
 CPU_CORES = os.cpu_count() or 1
 
-DOCKER_WS_URL = "ws://localhost:8000/ws/inference"
+DOCKER_WS_URL = os.getenv("CV_URL", "ws://localhost:8000/ws/inference")
 
 current_mode = "Working" 
 
