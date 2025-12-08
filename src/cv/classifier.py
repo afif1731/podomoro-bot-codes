@@ -7,9 +7,7 @@ import queue
 import json
 from collections import deque
 from dotenv import load_dotenv
-from websocket import create_connection 
-
-from classifier_helper import determine_final_status
+from websocket import create_connection
 
 load_dotenv()
 
@@ -34,6 +32,19 @@ running = True
 
 label_detection_history = deque(maxlen=HISTORY_SIZE)
 status_detection_history = deque(maxlen=HISTORY_SIZE)
+
+working_labels = {"sitting", "using_laptop", "writing", "reading", "start_pomodoro", "stop_pomodoro"}
+
+def determine_final_status(history):
+    if not history: return "Working"
+    
+    # Simple majority voting atau thresholding
+    distracted_count = sum(1 for status in history if status['label'] not in working_labels)
+    threshold = len(history) - 1
+
+    if distracted_count >= threshold:
+        return "Distracted"
+    return "Working"
 
 def inference_worker():
     global latest_result, label_detection_history, status_detection_history
