@@ -1,8 +1,6 @@
-import io
 import cv2
 import torch
 import numpy as np
-import base64
 from fastapi import FastAPI, WebSocket
 from ultralytics import YOLO
 from torchvision import transforms
