@@ -84,6 +84,7 @@ def main():
     global is_pomodoro_timer_running
     global is_being_reminded
     global is_await_confirmation
+    global is_on_transition
 
     global timer_second
     global confirmation_delay
