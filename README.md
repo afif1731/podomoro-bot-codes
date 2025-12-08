@@ -7,3 +7,9 @@
 ```bash
 uv sync
 ```
+
+2. To run Docker
+
+```bash
+docker compose up --build
+```

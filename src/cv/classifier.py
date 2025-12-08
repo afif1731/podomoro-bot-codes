@@ -1,41 +1,24 @@
 import time
 import cv2
-import torch
-import numpy as np
-from pathlib import Path
-from ultralytics import YOLO
-from torchvision import transforms
-import torch.nn.functional as F
-from PIL import Image
 import os
 import psutil
 import threading
 import queue
+import json
 from collections import deque
+from websocket import create_connection 
 
-from mobilenet_model import MobileNetHAR
 from classifier_helper import determine_final_status
 
 # -------- CONFIG --------
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-YOLO_WEIGHTS = "../../model/yolo11n.pt"
-MODEL_WEIGHTS = "../../model/mobilenet_lstm_har.pth"
-LABEL_PATH = "../../model/class_names.pth"
-
-CONF_THRESH = 0.25
-LABEL_CONF_THRESH = 0.6
-IMG_SIZE = 224
-YOLO_IMGSZ = 224
-
 DETECT_EVERY_N_FRAMES = 5
 HISTORY_SIZE = 5
 CPU_CORES = os.cpu_count() or 1
 
-# Mode kerja
+DOCKER_WS_URL = "ws://localhost:8000/ws/inference"
+
 current_mode = "Working" 
 
-# Shared Variables untuk Threading
 latest_result = {
     "found": False,
     "label": "",
@@ -46,129 +29,70 @@ result_lock = threading.Lock()
 frame_queue = queue.Queue(maxsize=1)
 running = True
 
-label_detection_history = deque(maxlen=HISTORY_SIZE) # deque detected label
-status_detection_history = deque(maxlen=HISTORY_SIZE) # deque detected status (working / distracted)
-
-print(f"Loading models on {DEVICE}...")
-
-# Load YOLO
-try:
-    yolo = YOLO(YOLO_WEIGHTS)
-except Exception as e:
-    print(f"Error loading YOLO: {e}. Downloading default yolo11n.pt...")
-    yolo = YOLO("yolo11n.pt")
-
-# Load Label Encoder (List of Strings)
-if os.path.exists(LABEL_PATH):
-    class_names = torch.load(LABEL_PATH)
-    print(f"Loaded {len(class_names)} classes: {class_names}")
-else:
-    print(f"⚠️ Label file not found at {LABEL_PATH}! Creating dummy classes.")
-    class_names = ["Unknown"] # Fallback
-
-num_classes = len(class_names)
-
-# Load Classification Model
-har_model = MobileNetHAR(num_classes=num_classes)
-
-if os.path.exists(MODEL_WEIGHTS):
-    state_dict = torch.load(MODEL_WEIGHTS, map_location=DEVICE)
-    har_model.load_state_dict(state_dict)
-    print("HAR Model weights loaded successfully.")
-else:
-    print(f"⚠️ Model weights not found at {MODEL_WEIGHTS}!")
-
-har_model.to(DEVICE)
-har_model.eval()
-
-to_tensor = transforms.Compose([
-    transforms.Resize((IMG_SIZE, IMG_SIZE)),
-    transforms.ToTensor(),
-    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-])
-
-# ------------------------
-
-# Logic Here
+label_detection_history = deque(maxlen=HISTORY_SIZE)
+status_detection_history = deque(maxlen=HISTORY_SIZE)
 
 def inference_worker():
     global latest_result, label_detection_history, status_detection_history
     
+    ws = None
+    
+    def connect_ws():
+        try:
+            conn = create_connection(DOCKER_WS_URL)
+            return conn
+        except Exception as e:
+            print(f"Failed to connect to Docker: {e}")
+            return None
+
     while running:
         try:
-            frame_data = frame_queue.get(timeout=0.1) 
-
+            frame_data = frame_queue.get(timeout=0.1)
             frame_rgb = frame_data['img']
-            frame_h, frame_w = frame_data['size']
-
-            # --- A. DETEKSI OBJEK (YOLO) ---
-            # Cari hanya class 0 (person)
-            results = yolo(frame_rgb, imgsz=YOLO_IMGSZ, conf=CONF_THRESH, classes=[0], verbose=False)
             
-            found_person = False
-            best_box = None
-            max_area = 0
+            if ws is None or not ws.connected:
+                ws = connect_ws()
+                if ws is None:
+                    frame_queue.task_done()
+                    time.sleep(1) 
+                    continue
+
+            frame_bgr = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
+            _, buffer = cv2.imencode('.jpg', frame_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+            frame_bytes = buffer.tobytes()
+
+            ws.send_binary(frame_bytes)
+
+            result_str = ws.recv()
+            result_json = json.loads(result_str)
             
-            if results:
-                for r in results:
-                    boxes = r.boxes
-                    for box in boxes:
-                        x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
-                        area = (x2 - x1) * (y2 - y1)
-                        
-                        if area > max_area:
-                            max_area = area
-                            best_box = [int(x1), int(y1), int(x2), int(y2)]
+            with result_lock:
+                latest_result['found'] = result_json['found']
+                latest_result['label'] = result_json['label']
+                latest_result['confidence'] = result_json['confidence']
 
-            if best_box is not None:
-                x1, y1, x2, y2 = best_box
-                x1, y1 = max(0, x1), max(0, y1)
-                x2, y2 = min(frame_w, x2), min(frame_h, y2)
-                found_person = True
-
-            # --- B. KLASIFIKASI AKTIVITAS ---
-            if found_person:
-                crop = frame_rgb[y1:y2, x1:x2]
+            if result_json['found']:
+                print(f"Docker Detected: {result_json['label']} ({result_json['confidence']:.2f})")
+                label_detection_history.append({
+                    "label": result_json['label'], 
+                    "confidence": result_json['confidence']
+                })
                 
-                if crop.size > 0 and crop.shape[0] > 10 and crop.shape[1] > 10:
-                    pil_crop = Image.fromarray(crop)
-                    
-                    inp = to_tensor(pil_crop).unsqueeze(0).to(DEVICE)
-
-                    with torch.no_grad():
-                        output = har_model(inp)
-                        probs = F.softmax(output, dim=1).cpu().numpy()[0]
-                        top_idx = int(np.argmax(probs))
-                        top_conf = float(probs[top_idx])
-
-                    raw_label = class_names[top_idx] if top_idx < len(class_names) else "Unknown"
-                    display_label = raw_label
-
-                    print(f"Frame detected. Label: {raw_label}, Confidence: {top_conf}.")
-
-                    label_detection_history.append({"label" : display_label, "confidence" : top_conf})
-
-                    new_status = determine_final_status(label_detection_history)
-
-                    status_detection_history.append(new_status)
-
-                    with result_lock:
-                        latest_result['found'] = True
-                        latest_result['label'] = display_label
-                        latest_result['confidence'] = top_conf
-                else:
-                    with result_lock: latest_result['found'] = False
-
+                new_status = determine_final_status(label_detection_history)
+                status_detection_history.append(new_status)
             else:
-                with result_lock:
-                    latest_result['found'] = False
+                pass
 
             frame_queue.task_done()
 
         except queue.Empty:
             continue
         except Exception as e:
-            print(f"Error in worker thread: {e}")
+            print(f"Error in inference worker (WS): {e}")
+            if ws:
+                try: ws.close() 
+                except: pass
+            ws = None
 
 class BotClassifier():
     def __init__(self, cap):
@@ -180,17 +104,17 @@ class BotClassifier():
 
     def classifier_loop(self):
         ret, frame = self.cap.read()
-        if not ret: return
+        if not ret: return "Error", latest_result
         
-        frame_count += 1
+        self.frame_count += 1
         frame_h, frame_w = frame.shape[:2]
         
         # Kirim frame ke thread worker setiap N frame
-        if frame_count % DETECT_EVERY_N_FRAMES == 0:
-            frame_count = 0
+        if self.frame_count % DETECT_EVERY_N_FRAMES == 0:
+            self.frame_count = 0
             
             if frame_queue.empty():
-                # Convert BGR (OpenCV) ke RGB (untuk Model & PIL)
+                # Convert BGR (OpenCV) ke RGB
                 rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 
                 frame_data = {
@@ -208,7 +132,7 @@ class BotClassifier():
             cpu_usage = self.process.cpu_percent(interval=None)
             ram_usage_mb = self.process.memory_info().rss / (1024 * 1024)
 
-            print(f"FPS: {fps} | CPU: {cpu_usage} %, AVG: {cpu_usage / CPU_CORES} % | RAM: {ram_usage_mb} MB")
+            print(f"FPS: {fps:.1f} | CPU: {cpu_usage}% | RAM: {ram_usage_mb:.1f} MB")
             # -------------
 
         if not status_detection_history:
