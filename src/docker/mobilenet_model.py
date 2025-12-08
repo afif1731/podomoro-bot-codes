@@ -14,10 +14,14 @@ class MobileNetHAR(nn.Module):
         self.classifier = nn.Sequential(
             nn.Flatten(),
             nn.Linear(input_features, 1024),
-            nn.Linear(1024, 512),
+            nn.BatchNorm1d(1024),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            
+            nn.Linear(1024, 256),
             nn.ReLU(),
             nn.Dropout(0.3),
-            nn.Linear(512, 256),
+
             nn.Linear(256, num_classes)
         )
 

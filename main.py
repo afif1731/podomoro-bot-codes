@@ -145,7 +145,7 @@ def main():
         
         status, result = cv_classifier.classifier_loop() # status = "Working" | "Distracted". result = {"found": boolean; "label": string; "confidence": float}
 
-        print(f"Status: ${status} | Result: ${result}")
+        print(f"Status: {status} | Result: {result}")
 
         if is_on_transition is True and transition_time < 3:
             continue
