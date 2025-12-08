@@ -146,7 +146,7 @@ class BotClassifier():
             cpu_usage = self.process.cpu_percent(interval=None)
             ram_usage_mb = self.process.memory_info().rss / (1024 * 1024)
 
-            print(f"FPS: {fps:.1f} | CPU: {cpu_usage}% | RAM: {ram_usage_mb:.1f} MB")
+            # print(f"FPS: {fps:.1f} | CPU: {cpu_usage}% | RAM: {ram_usage_mb:.1f} MB")
             # -------------
 
         if not status_detection_history:
