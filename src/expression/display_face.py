@@ -4,7 +4,15 @@ from PIL import Image, ImageOps
 from luma.core.interface.serial import spi
 from luma.lcd.device import st7789
 
-from expression_config import FACE_MAPPING
+FACE_MAPPING = {
+    "idle": "./faces/face_idle.jpg",
+    "working": "./faces/face_working.jpg",
+    "break":  "./faces/face_break.jpg",
+    "distracted":  "./faces/face_work_distracted.jpg",
+    "break-reminder":  "./faces/face_break_reminder.jpg",
+    "loading":  "./faces/face_loading.jpg",
+    "connected":  "./faces/face_connected.jpg",
+}
 
 serial = spi(port=0, device=0, gpio_DC=25, gpio_RST=24, speed_hz=24000000)
 device = st7789(serial, width=240, height=240, rotate=0)

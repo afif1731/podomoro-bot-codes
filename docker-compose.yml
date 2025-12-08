@@ -1,7 +1,7 @@
 services:
   inference-server:
     build:
-      context: ./docker
+      context: ./src/docker
       dockerfile: Dockerfile
     container_name: har_inference_container
     ports:
