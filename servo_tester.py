@@ -9,11 +9,11 @@ while True:
       angka = int(input("Masukkan angka (1-4): "))
 
       if angka == 1:
-          print("Podomoro Hands Up for 10s")
-          servo.break_move(10)
+          print("Podomoro Hands Up for 180s")
+          servo.break_move(180)
       elif angka == 2:
-          print("Podomoro Hands Down for 10s")
-          servo.work_move(10)
+          print("Podomoro Hands Down for 180s")
+          servo.work_move(180)
       elif angka == 3:
           print("Taunting")
           servo.taunt()
