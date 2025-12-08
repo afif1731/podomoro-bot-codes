@@ -1,67 +1,148 @@
+import time
 import cv2
-import torch
-from ultralytics import YOLO
 import os
+import psutil
+import threading
+import queue
+import json
+from collections import deque
+from dotenv import load_dotenv
+from websocket import create_connection 
 
-from mobilenet_model import MobileNetHAR
+from classifier_helper import determine_final_status
+
+load_dotenv()
 
 # -------- CONFIG --------
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-YOLO_WEIGHTS = "../../model/yolo11n.pt"
-MODEL_WEIGHTS = "../../model/mobilenet_lstm_har.pth"
-LABEL_PATH = "../../model/class_names.pth"
-
-CONF_THRESH = 0.25
-LABEL_CONF_THRESH = 0.6
-IMG_SIZE = 224
-YOLO_IMGSZ = 320
-
-FONT = cv2.FONT_HERSHEY_SIMPLEX
-FONT_SCALE = 0.6
-THICKNESS = 2
+DETECT_EVERY_N_FRAMES = 5
+HISTORY_SIZE = 5
 CPU_CORES = os.cpu_count() or 1
 
-DETECT_EVERY_N_FRAMES = 5 # Lakukan deteksi setiap N frame (untuk performa)
-HISTORY_SIZE = 5          # Smoothing hasil prediksi
+DOCKER_WS_URL = os.getenv("CV_URL", "ws://localhost:8000/ws/inference")
 
-# Mode kerja
-current_mode = "Working"
-# Sesuaikan himpunan ini dengan nama kelas yang ada di dataset Anda
-working_labels = {"calling", "listening_music", "sitting", "using_laptop"}
+current_mode = "Working" 
 
-print(f"Loading models on {DEVICE}...")
+latest_result = {
+    "found": False,
+    "label": "",
+    "confidence": 0.0
+}
 
-# Load YOLO
-try:
-    yolo = YOLO(YOLO_WEIGHTS)
-except Exception as e:
-    print(f"Error loading YOLO: {e}. Downloading default yolo11n.pt...")
-    yolo = YOLO("yolo11n.pt")
+result_lock = threading.Lock()
+frame_queue = queue.Queue(maxsize=1)
+running = True
 
-# Load Label Encoder (List of Strings)
-if os.path.exists(LABEL_PATH):
-    class_names = torch.load(LABEL_PATH)
-    print(f"Loaded {len(class_names)} classes: {class_names}")
-else:
-    print(f"⚠️ Label file not found at {LABEL_PATH}! Creating dummy classes.")
-    class_names = ["Unknown"] # Fallback
+label_detection_history = deque(maxlen=HISTORY_SIZE)
+status_detection_history = deque(maxlen=HISTORY_SIZE)
 
-num_classes = len(class_names)
+def inference_worker():
+    global latest_result, label_detection_history, status_detection_history
+    
+    ws = None
+    
+    def connect_ws():
+        try:
+            conn = create_connection(DOCKER_WS_URL)
+            return conn
+        except Exception as e:
+            print(f"Failed to connect to Docker: {e}")
+            return None
 
-# Load Classification Model
-har_model = MobileNetHAR(num_classes=num_classes)
+    while running:
+        try:
+            frame_data = frame_queue.get(timeout=0.1)
+            frame_rgb = frame_data['img']
+            
+            if ws is None or not ws.connected:
+                ws = connect_ws()
+                if ws is None:
+                    frame_queue.task_done()
+                    time.sleep(1) 
+                    continue
 
-if os.path.exists(MODEL_WEIGHTS):
-    state_dict = torch.load(MODEL_WEIGHTS, map_location=DEVICE)
-    har_model.load_state_dict(state_dict)
-    print("HAR Model weights loaded successfully.")
-else:
-    print(f"⚠️ Model weights not found at {MODEL_WEIGHTS}!")
+            frame_bgr = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
+            _, buffer = cv2.imencode('.jpg', frame_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+            frame_bytes = buffer.tobytes()
 
-har_model.to(DEVICE)
-har_model.eval()
+            ws.send_binary(frame_bytes)
 
-# ------------------------
+            result_str = ws.recv()
+            result_json = json.loads(result_str)
+            
+            with result_lock:
+                latest_result['found'] = result_json['found']
+                latest_result['label'] = result_json['label']
+                latest_result['confidence'] = result_json['confidence']
 
-# Logic Here
+            if result_json['found']:
+                print(f"Docker Detected: {result_json['label']} ({result_json['confidence']:.2f})")
+                label_detection_history.append({
+                    "label": result_json['label'], 
+                    "confidence": result_json['confidence']
+                })
+                
+                new_status = determine_final_status(label_detection_history)
+                status_detection_history.append(new_status)
+            else:
+                pass
+
+            frame_queue.task_done()
+
+        except queue.Empty:
+            continue
+        except Exception as e:
+            print(f"Error in inference worker (WS): {e}")
+            if ws:
+                try: ws.close() 
+                except: pass
+            ws = None
+
+class BotClassifier():
+    def __init__(self, cap):
+        self.prev_time = time.time()
+        self.frame_count = 0
+        self.cap = cap
+        self.pid = os.getpid()
+        self.process = psutil.Process(self.pid)
+
+    def classifier_loop(self):
+        ret, frame = self.cap.read()
+        if not ret: return "Error", latest_result
+        
+        self.frame_count += 1
+        frame_h, frame_w = frame.shape[:2]
+        
+        # Kirim frame ke thread worker setiap N frame
+        if self.frame_count % DETECT_EVERY_N_FRAMES == 0:
+            self.frame_count = 0
+            
+            if frame_queue.empty():
+                # Convert BGR (OpenCV) ke RGB
+                rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                
+                frame_data = {
+                    'img': rgb_frame,
+                    'size': (frame_h, frame_w),
+                    'mode': current_mode
+                }
+                frame_queue.put(frame_data)
+            
+            # --- Debug ---
+            cur_time = time.time()
+            fps = 1.0 / (cur_time - self.prev_time) if (cur_time - self.prev_time) > 0 else 0.0
+            self.prev_time = cur_time
+
+            cpu_usage = self.process.cpu_percent(interval=None)
+            ram_usage_mb = self.process.memory_info().rss / (1024 * 1024)
+
+            print(f"FPS: {fps:.1f} | CPU: {cpu_usage}% | RAM: {ram_usage_mb:.1f} MB")
+            # -------------
+
+        if not status_detection_history:
+            return "Working", latest_result
+
+        distracted_count = sum(1 for status in status_detection_history if status == "Distracted")
+        threshold = len(status_detection_history) - 1
+        if distracted_count >= threshold:
+            return "Distracted", latest_result
+        return "Working", latest_result

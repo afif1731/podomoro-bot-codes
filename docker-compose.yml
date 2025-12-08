@@ -1,0 +1,13 @@
+services:
+  inference-server:
+    build:
+      context: ./src/docker
+      dockerfile: Dockerfile
+    container_name: har_inference_container
+    ports:
+      - "${DOCKER_EXPOSE_PORT}:8000"
+    volumes:
+      - ./:/app/external
+    env_file:
+      - .env
+    restart: no
