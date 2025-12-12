@@ -11,4 +11,4 @@ wheels/
 .env
 
 # Test folder
-TA
+src/ta/
