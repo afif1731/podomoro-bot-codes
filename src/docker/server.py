@@ -22,7 +22,7 @@ app = FastAPI()
 # -------- CONFIG & LOAD MODEL --------
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 YOLO_WEIGHTS = "/app/external/model/yolo11n.pt"
-MODEL_WEIGHTS = "/app/external/model/mobilenet_har.pth"
+MODEL_WEIGHTS = "/app/external/model/densenet_har.pth"
 LABEL_PATH = "/app/external/model/class_names.pth"
 
 CONF_THRESH = 0.25

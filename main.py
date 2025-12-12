@@ -84,6 +84,7 @@ def main():
     global is_pomodoro_timer_running
     global is_being_reminded
     global is_await_confirmation
+    global is_on_transition
 
     global timer_second
     global confirmation_delay
@@ -143,6 +144,8 @@ def main():
                 transition_time += 1
         
         status, result = cv_classifier.classifier_loop() # status = "Working" | "Distracted". result = {"found": boolean; "label": string; "confidence": float}
+
+        print(f"Status: {status} | Result: {result}")
 
         if is_on_transition is True and transition_time < 3:
             continue
