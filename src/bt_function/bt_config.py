@@ -81,8 +81,18 @@ class PodomoroBT:
     response = self._send_and_wait(payload)
     return response.get("status") == "success" if response else False
 
-  def request_get_most_recent_task(self):
+  def get_most_recent_todo(self):
     print("meminta app untuk menigirm task di urutan paling atas")
+
+    payload = {"action": "GET_LATEST_TODO"}
+
+    response = self._send_and_wait(payload)
+
+    if response and "task_id" in response:
+      return response
+    else:
+      print("Gagal mendapatkan tugas terbaru")
+      return None
 
   def close_connection(self):
     if self.client_sock:

@@ -30,6 +30,10 @@ POMODORO_CONF = {
 }
 
 # Preload Setup
+bot_bt = PodomoroBT(BT_UUID, BT_BUFFER_SIZE)
+servo = MoveServo(pin=BOT_SERVO_PIN)
+cap = cv2.VideoCapture(BOT_CAM_URL)
+
 bot_detection_status = "Idle" # Idle, Working, Break
 is_pomodoro_timer_running = False
 is_being_reminded = False
@@ -40,6 +44,8 @@ timer_second = 0
 confirmation_delay = 0
 reminder_time = 0
 transition_time = 0
+
+current_task = None
 
 def start_podomoro(*servo: MoveServo):
     print("Pomodoro Work Timer Started")
@@ -86,6 +92,8 @@ def asking_confirmation(confirm_to):
 
 def main():
     # Preload Setup
+    global POMODORO_CONF
+
     global bot_detection_status
     global is_pomodoro_timer_running
     global is_being_reminded
@@ -97,11 +105,14 @@ def main():
     global reminder_time
     global transition_time
 
-    bot_bt = PodomoroBT(BT_UUID, BT_BUFFER_SIZE)
-    servo = MoveServo(pin=BOT_SERVO_PIN)
-    preload_images()
+    global current_task
 
-    cap = cv2.VideoCapture(BOT_CAM_URL)
+    global bot_bt
+    global servo
+    global cap
+
+    preload_images()
+    
     # Set resolusi kamera (opsional, sesuaikan kemampuan webcam)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, BOT_CAMERA_WIDTH)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, BOT_CAMERA_HEIGHT)
@@ -131,7 +142,8 @@ def main():
     # Retrieve Data
     response = bot_bt.get_podomoro_config()
     if response is not None:
-        POMODORO_CONF = response
+        POMODORO_CONF["work_time"] = response["work_time"]
+        POMODORO_CONF["break_time"] = response["break_time"]
     display_face_fast("connected")
 
     #--- Main Loop ---
@@ -168,6 +180,13 @@ def main():
         # --- Idle Logic ---
         if bot_detection_status == "Idle":
             if is_pomodoro_timer_running is False and result["label"] == "start_pomodoro" and result["confidence"] > BOT_STATUS_CONF_THRESH:
+                current_task = bot_bt.get_most_recent_todo()
+
+                if current_task is None:
+                    continue
+
+                bot_bt.update_task_status(current_task["task_id"], "ONGOING")
+                
                 bot_detection_status = "Working"
                 is_pomodoro_timer_running = True
                 timer_second = POMODORO_CONF["work_time"]
@@ -185,6 +204,10 @@ def main():
             if is_await_confirmation is True:
                 if confirmation_delay > 2 and confirmation_delay < 6:
                     if result["label"] == "stop_pomodoro" and result["confidence"] > BOT_STATUS_CONF_THRESH:
+                        print("[BOT] Stopping the pomodoro")
+
+                        bot_bt.update_task_status(current_task["task_id"], "TODO")
+
                         bot_detection_status = "Idle"
                         is_pomodoro_timer_running = False
                         timer_second = 0
@@ -196,6 +219,8 @@ def main():
                     confirmation_delay = 0
 
             if result["label"] == "stop_pomodoro" and result["confidence"] > BOT_STATUS_CONF_THRESH and is_await_confirmation is False:
+                print("[BOT] Stop gesture detected, asking for confirmation")
+                
                 is_await_confirmation = True
                 asking_confirmation("end")
                 continue
@@ -219,11 +244,11 @@ def main():
             if is_await_confirmation is True:
                 if confirmation_delay > 2 and confirmation_delay < 6:
                     if result["label"] == "stop_pomodoro" and result["confidence"] > BOT_STATUS_CONF_THRESH:
-                        # move task to todo
+                        bot_bt.update_task_status(current_task["task_id"], "TODO")
                         print("task returned to todo")
 
                     if result["label"] == "start_pomodoro" and result["confidence"] > BOT_STATUS_CONF_THRESH:
-                        # move task to finished
+                        bot_bt.update_task_status(current_task["task_id"], "FINISHED")
                         print("task updated to finished")
                     
                     bot_detection_status = "Idle"
@@ -238,6 +263,8 @@ def main():
 
             if result["found"] is True:
                 if result["label"] == "stop_pomodoro" and result["confidence"] > BOT_STATUS_CONF_THRESH and is_await_confirmation is False:
+                    print("[BOT] Stop gesture detected, asking for task done confirmation")
+                    
                     is_await_confirmation = True
                     asking_confirmation("task-done")
                     continue
@@ -254,4 +281,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+
+    except KeyboardInterrupt:
+        print("[BOT] Shutting Down...")
+        bot_bt.close_connection()
+        servo.cleanup()
+        exit(1)
