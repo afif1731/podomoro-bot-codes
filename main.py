@@ -7,16 +7,22 @@ from dotenv import load_dotenv
 from src.servo.mover import MoveServo
 from src.expression.display_face import preload_images, display_face_fast
 from src.cv.classifier import BotClassifier, inference_worker
+from src.bt_function.bt_config import PodomoroBT
 
 load_dotenv()
 
-SERVO_PIN = 17
-CAMERA_WIDTH = 240
-CAMERA_HEIGHT = 240
-CONF_THRESH = 0.25
-LABEL_CONF_THRESH = 0.6
-STATUS_CONF_THRESH = 0.85
-CAM_URL = os.getenv("CAM_URL", "http://10.238.183.49:81/stream")
+BOT_SERVO_PIN = int(os.getenv("BOT_SERVO_PIN", "17"))
+BOT_CAMERA_WIDTH = int(os.getenv("BOT_CAMERA_WIDTH", "240"))
+BOT_CAMERA_HEIGHT = int(os.getenv("BOT_CAMERA_HEIGHT", "240"))
+
+BOT_CONF_THRESH = float(os.getenv("BOT_CONF_THRESH", "0.25"))
+BOT_LABEL_CONF_THRESH = float(os.getenv("BOT_LABEL_CONF_THRESH", "0.6"))
+BOT_STATUS_CONF_THRESH = float(os.getenv("BOT_STATUS_CONF_THRESH", "0.85"))
+
+BOT_CAM_URL = os.getenv("CAM_URL", "http://10.238.183.49:81/stream")
+
+BT_UUID = os.getenv("BT_UUID", "not-so-random-uuid")
+BT_BUFFER_SIZE = int(os.getenv("BT_BUFFER_SIZE", "1024"))
 
 POMODORO_CONF = {
     "work_time": 25 * 60,
@@ -91,13 +97,14 @@ def main():
     global reminder_time
     global transition_time
 
-    servo = MoveServo(pin=SERVO_PIN)
+    bot_bt = PodomoroBT(BT_UUID, BT_BUFFER_SIZE)
+    servo = MoveServo(pin=BOT_SERVO_PIN)
     preload_images()
 
-    cap = cv2.VideoCapture(CAM_URL)
+    cap = cv2.VideoCapture(BOT_CAM_URL)
     # Set resolusi kamera (opsional, sesuaikan kemampuan webcam)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, BOT_CAMERA_WIDTH)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, BOT_CAMERA_HEIGHT)
 
     if not cap.isOpened():
         raise RuntimeError("Cannot open webcam in cam url.")
@@ -118,9 +125,13 @@ def main():
 
     # Connecting to Bluetooth
     display_face_fast("loading")
+    bot_bt.start_server()
     # Play Sound: Bluetooth Connected
 
     # Retrieve Data
+    response = bot_bt.get_podomoro_config()
+    if response is not None:
+        POMODORO_CONF = response
     display_face_fast("connected")
 
     #--- Main Loop ---
@@ -156,7 +167,7 @@ def main():
 
         # --- Idle Logic ---
         if bot_detection_status == "Idle":
-            if is_pomodoro_timer_running is False and result["label"] == "start_pomodoro" and result["confidence"] > STATUS_CONF_THRESH:
+            if is_pomodoro_timer_running is False and result["label"] == "start_pomodoro" and result["confidence"] > BOT_STATUS_CONF_THRESH:
                 bot_detection_status = "Working"
                 is_pomodoro_timer_running = True
                 timer_second = POMODORO_CONF["work_time"]
@@ -173,7 +184,7 @@ def main():
 
             if is_await_confirmation is True:
                 if confirmation_delay > 2 and confirmation_delay < 6:
-                    if result["label"] == "stop_pomodoro" and result["confidence"] > STATUS_CONF_THRESH:
+                    if result["label"] == "stop_pomodoro" and result["confidence"] > BOT_STATUS_CONF_THRESH:
                         bot_detection_status = "Idle"
                         is_pomodoro_timer_running = False
                         timer_second = 0
@@ -184,7 +195,7 @@ def main():
                     is_await_confirmation = False
                     confirmation_delay = 0
 
-            if result["label"] == "stop_pomodoro" and result["confidence"] > STATUS_CONF_THRESH and is_await_confirmation is False:
+            if result["label"] == "stop_pomodoro" and result["confidence"] > BOT_STATUS_CONF_THRESH and is_await_confirmation is False:
                 is_await_confirmation = True
                 asking_confirmation("end")
                 continue
@@ -207,11 +218,11 @@ def main():
 
             if is_await_confirmation is True:
                 if confirmation_delay > 2 and confirmation_delay < 6:
-                    if result["label"] == "stop_pomodoro" and result["confidence"] > STATUS_CONF_THRESH:
+                    if result["label"] == "stop_pomodoro" and result["confidence"] > BOT_STATUS_CONF_THRESH:
                         # move task to todo
                         print("task returned to todo")
 
-                    if result["label"] == "start_pomodoro" and result["confidence"] > STATUS_CONF_THRESH:
+                    if result["label"] == "start_pomodoro" and result["confidence"] > BOT_STATUS_CONF_THRESH:
                         # move task to finished
                         print("task updated to finished")
                     
@@ -226,7 +237,7 @@ def main():
                     confirmation_delay = 0
 
             if result["found"] is True:
-                if result["label"] == "stop_pomodoro" and result["confidence"] > STATUS_CONF_THRESH and is_await_confirmation is False:
+                if result["label"] == "stop_pomodoro" and result["confidence"] > BOT_STATUS_CONF_THRESH and is_await_confirmation is False:
                     is_await_confirmation = True
                     asking_confirmation("task-done")
                     continue
