@@ -75,7 +75,7 @@ class PodomoroBT:
     payload = {
         "action": "UPDATE_TASK",
         "task_id": task_id,
-        "status": status
+        "status": status # TODO, ONGOING, FINISHED
     }
     
     response = self._send_and_wait(payload)

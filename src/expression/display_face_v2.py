@@ -9,6 +9,7 @@ from src.expression.face_map import FACE_MAPPING
 cs_pin = digitalio.DigitalInOut(board.CE0)
 dc_pin = digitalio.DigitalInOut(board.D25)
 reset_pin = digitalio.DigitalInOut(board.D24)
+
 BAUDRATE = 60000000 # 60 MHz
 
 spi = board.SPI()
