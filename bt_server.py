@@ -1,20 +1,28 @@
+import time
 import asyncio
 from src.bt_function.bt_config_v2 import PodomoroBT
 
-# UUID harus SAMA
-BT_UUID = "f000aa01-0451-4000-b000-000000000000"
+# Pastikan UUID SAMA PERSIS dengan di Ionic
+# Service UUID
+BT_UUID = "a9ddf3dd-4642-46e0-b8a6-8151f88f843f"
 
-async def main():
-    bot_bt = PodomoroBT(BT_UUID)
-    try:
-        await bot_bt.run()
-    except KeyboardInterrupt:
-        pass
-    except Exception as e:
-        print(f"Error: {e}")
+# Inisialisasi
+bot_bt = PodomoroBT(BT_UUID)
 
-if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        print("\nBye.")
+try:
+    # 1. Nyalakan Bluetooth Server
+    bot_bt.start_server()
+    
+    print("\n--- SYSTEM READY ---")
+    print("Silakan buka App Ionic dan tekan 'Cari & Hubungkan'")
+    print("Tekan Ctrl+C untuk berhenti.\n")
+
+    # 2. Keep Alive (Looping kosong agar program tidak mati)
+    # Server BLE berjalan di background (handled by bless/asyncio internal)
+    loop = asyncio.get_event_loop()
+    loop.run_forever()
+
+except KeyboardInterrupt:
+    print("\nMematikan server...")
+    bot_bt.close_connection()
+    print("Bye.")
