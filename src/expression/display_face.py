@@ -1,12 +1,16 @@
 import os
-import RPi.GPIO as GPIO
+import time
 from PIL import Image, ImageOps
 from luma.core.interface.serial import spi
 from luma.lcd.device import st7789
-
 from src.expression.face_map import FACE_MAPPING
 
-serial = spi(port=0, device=0, gpio_DC=25, gpio_RST=24, speed_hz=8000000)
+# --- 1. SETUP DISPLAY ---
+
+# Konfigurasi SPI
+serial = spi(port=0, device=0, gpio_DC=25, gpio_RST=24, speed_hz=8000000, spi_mode=0)
+
+# Konfigurasi Device & Backlight
 device = st7789(
     serial,
     width=240,
@@ -14,12 +18,12 @@ device = st7789(
     rotate=0,
     h_offset=0,
     v_offset=0,
-    bgr=True
-    )
+    bgr=True,
+    gpio_LIGHT=18,      # Masukkan pin Backlight di sini
+    active_low=False    # False berarti logic HIGH menyalakan layar
+)
 
-GPIO.setmode(GPIO.BCM)
-GPIO.setup(18, GPIO.OUT)
-GPIO.output(18, GPIO.HIGH)
+device.backlight(True)
 
 IMAGE_CACHE = {}
 
@@ -31,7 +35,6 @@ def preload_images():
     print("--- Memulai Preload Aset ---")
     
     for face_id, file_path in FACE_MAPPING.items():
-        # Cek apakah file ada
         if not os.path.exists(file_path):
             print(f"[SKIP] File tidak ditemukan: {file_path}")
             continue
@@ -40,9 +43,7 @@ def preload_images():
             # 1. Buka Gambar
             img = Image.open(file_path).convert("RGB")
             
-            # 2. Proses Resize/Fit SEKARANG (bukan saat ditampilkan nanti)
-            # Menggunakan LANCZOS agar halus untuk wajah/foto.
-            # Jika ini Pixel Art murni, ganti Image.LANCZOS dengan Image.NEAREST
+            # 2. Resize/Fit
             img_processed = ImageOps.fit(
                 img, 
                 (device.width, device.height), 
@@ -61,39 +62,38 @@ def preload_images():
 
 def display_face_fast(face_id):
     """
-    Menampilkan gambar dari RAM. Sangat cepat.
+    Menampilkan gambar dari RAM.
     """
-    # Cek apakah ID ada di Cache
     if face_id in IMAGE_CACHE:
-        # Langsung kirim data memori ke layar
         device.display(IMAGE_CACHE[face_id])
     else:
-        print(f"Warning: ID '{face_id}' tidak ditemukan di Cache atau gagal dimuat.")
+        print(f"Warning: ID '{face_id}' belum di-preload.")
+        # Fallback ke mode lambat jika belum di-cache
+        display_face(face_id)
 
 def display_face(face_id):
     """
-    Menampilkan wajah dari mapping ID dengan smart fitting
+    Mode lambat (baca langsung dari disk) - berguna untuk testing/fallback
     """
     if face_id not in FACE_MAPPING:
         print(f"ID {face_id} tidak dikenal.")
         return
 
     path = FACE_MAPPING[face_id]
-    
     try:
+        if not os.path.exists(path):
+            print(f"File {path} tidak ada.")
+            return
+
         img = Image.open(path).convert("RGB")
-        
-        # ImageOps.fit sangat berguna untuk mengisi layar penuh tanpa gepeng
-        # method=Image.LANCZOS untuk hasil halus (foto/wajah)
         img_fitted = ImageOps.fit(
             img, 
             (device.width, device.height), 
             method=Image.LANCZOS,
             centering=(0.5, 0.5)
         )
-        
         device.display(img_fitted)
-        print(f"Wajah: {face_id}")
+        print(f"Wajah (Disk): {face_id}")
         
     except Exception as e:
         print(f"Error Face: {e}")
