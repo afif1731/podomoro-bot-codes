@@ -6,8 +6,16 @@ from luma.lcd.device import st7789
 
 from src.expression.face_map import FACE_MAPPING
 
-serial = spi(port=0, device=0, gpio_DC=25, gpio_RST=24, speed_hz=24000000)
-device = st7789(serial, width=240, height=240, rotate=0)
+serial = spi(port=0, device=0, gpio_DC=25, gpio_RST=24, speed_hz=8000000)
+device = st7789(
+    serial,
+    width=240,
+    height=240,
+    rotate=0,
+    h_offset=0,
+    v_offset=0,
+    bgr=True
+    )
 
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(18, GPIO.OUT)
@@ -15,7 +23,6 @@ GPIO.output(18, GPIO.HIGH)
 
 IMAGE_CACHE = {}
 
-# Panggil ini waktu setup bot!
 def preload_images():
     """
     Membaca semua file di FACE_MAPPING, melakukan resize/fitting,

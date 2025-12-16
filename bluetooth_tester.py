@@ -1,7 +1,7 @@
 from src.bt_function.bt_config import PodomoroBT
 
 BT_UUID="a9ddf3dd-4642-46e0-b8a6-8151f88f843f"
-BT_BUFFER_SIZE="1024"
+BT_BUFFER_SIZE=1024
 
 bot_bt = PodomoroBT(BT_UUID, BT_BUFFER_SIZE)
 

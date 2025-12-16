@@ -12,10 +12,10 @@ import sys
 sys.path.append("/app/external")
 
 try:
-    from mobilenet_model import MobileNetHAR
+    from mobilenet_model import ModelHAR
 except ImportError:
-    print("Warning: MobileNetHAR definition not found. Check volume mapping.")
-    class MobileNetHAR: pass 
+    print("Warning: ModelHAR definition not found. Check volume mapping.")
+    class ModelHAR: pass 
 
 app = FastAPI()
 
@@ -44,12 +44,21 @@ if os.path.exists(LABEL_PATH):
     print(f"Loaded classes: {class_names}")
 else:
     class_names = ["Unknown"]
+
 num_classes = len(class_names)
+hidden1 = 512
+hidden2 = 256
+dropout_rate = 0.3
 
 # 3. Load HAR Model
 har_model = None
 try:
-    har_model = MobileNetHAR(num_classes=num_classes)
+    har_model = ModelHAR(
+        num_classes=num_classes,
+        hidden1=hidden1,
+        hidden2=hidden2,
+        dropout_rate=dropout_rate
+        )
     if os.path.exists(MODEL_WEIGHTS):
         state_dict = torch.load(MODEL_WEIGHTS, map_location=DEVICE)
         har_model.load_state_dict(state_dict)
