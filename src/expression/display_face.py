@@ -2,16 +2,16 @@ import os
 import time
 from PIL import Image, ImageOps
 from luma.core.interface.serial import spi
-from luma.lcd.device import st7789
+from luma.lcd.device import gc9a01
 from src.expression.face_map import FACE_MAPPING
 
 # --- 1. SETUP DISPLAY ---
 
 # Konfigurasi SPI
-serial = spi(port=0, device=0, gpio_DC=25, gpio_RST=24, speed_hz=8000000, spi_mode=0)
+serial = spi(port=0, device=0, gpio_DC=25, gpio_RST=24, speed_hz=24000000, spi_mode=0)
 
 # Konfigurasi Device & Backlight
-device = st7789(
+device = gc9a01(
     serial,
     width=240,
     height=240,
