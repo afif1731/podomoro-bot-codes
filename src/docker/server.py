@@ -22,10 +22,10 @@ app = FastAPI()
 # -------- CONFIG & LOAD MODEL --------
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 YOLO_WEIGHTS = "/app/external/model/yolo11n.pt"
-MODEL_WEIGHTS = "/app/external/model/densenet_har.pth"
+MODEL_WEIGHTS = "/app/external/model/densenet_har_nofreeze.pth"
 LABEL_PATH = "/app/external/model/class_names.pth"
 
-CONF_THRESH = 0.25
+CONF_THRESH = 0.6
 IMG_SIZE = 224
 YOLO_IMGSZ = 224
 
@@ -46,9 +46,9 @@ else:
     class_names = ["Unknown"]
 
 num_classes = len(class_names)
-hidden1 = 512
-hidden2 = 256
-dropout_rate = 0.3
+hidden1 = 640
+# hidden2 = 256
+dropout_rate = 0.31417882494899535
 
 # 3. Load HAR Model
 har_model = None
@@ -56,7 +56,6 @@ try:
     har_model = ModelHAR(
         num_classes=num_classes,
         hidden1=hidden1,
-        hidden2=hidden2,
         dropout_rate=dropout_rate
         )
     if os.path.exists(MODEL_WEIGHTS):
