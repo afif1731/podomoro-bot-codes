@@ -31,39 +31,43 @@ class PodomoroBT:
         permissions = (GATTAttributePermissions.readable | GATTAttributePermissions.writeable)
 
         await self.server.add_new_service(self.service_uuid)
-        initial_val = bytearray(json.dumps({"status": "ready"}).encode('utf-8'))
+        
+        # Beri nilai awal agar characteristic terdaftar dengan benar di DBus Linux
+        initial_val = bytearray("READY\n".encode('utf-8'))
         
         await self.server.add_new_characteristic(
             self.service_uuid, self.char_uuid, char_flags, initial_val, permissions
         )
         await self.server.start()
-        logger.info("📡 Bluetooth Server Aktif & Menunggu Android...")
+        print("📡 Bluetooth Server Aktif & Menunggu Android...", flush=True)
 
     def on_write(self, characteristic_uuid: str, value: bytearray):
         try:
             raw_data = value.decode("utf-8")
             self._buffer += raw_data
+            
+            # Print setiap potongan data (Force Flush agar muncul di terminal)
+            print(f"DEBUG: Data masuk -> {raw_data}", end="", flush=True)
 
             if self._buffer.endswith("\n"):
+                print("\nDEBUG: Paket lengkap diterima!", flush=True)
                 complete_data = self._buffer.strip()
-                data = json.loads(complete_data)
                 self._buffer = ""
 
+                data = json.loads(complete_data)
                 event_type = data.get("event")
                 payload = data.get("payload")
 
                 if event_type == "SYNC_ALL":
-                    logger.info(f"🔄 Sinkronisasi Full: {len(payload)} tugas diterima.")
+                    print(f"\n🔄 SINKRONISASI BERHASIL: {len(payload)} tugas", flush=True)
                     for task in payload:
-                        print(f" - [{task['column']}] {task['name']}")
+                        print(f" >> [{task['column'].upper()}] {task['name']}", flush=True)
                 
                 elif event_type == "UPDATE_TASK":
-                    logger.info(f"✅ Update: Task {payload['id']} pindah ke {payload['column']}")
+                    print(f"✅ UPDATE: Task {payload['id']} ke {payload['column']}", flush=True)
 
-        except json.JSONDecodeError:
-            pass
         except Exception as e:
-            logger.error(f"Gagal parse data: {e}")
+            print(f"\n❌ ERROR: {e}", flush=True)
             self._buffer = ""
 
     def on_read(self, characteristic_uuid: str) -> bytearray:
