@@ -16,6 +16,7 @@ class PodomoroBT:
         self.char_uuid = 'b1a2c3d4-e5f6-7890-a1b2-c3d4e5f67890'.lower()
         self.server_name = "raspi"
         self.server = None
+        self._buffer = ""
 
     async def run(self):
         self.server = BlessServer(name=self.server_name)
@@ -40,18 +41,30 @@ class PodomoroBT:
 
     def on_write(self, characteristic_uuid: str, value: bytearray):
         try:
-            data = json.loads(value.decode("utf-8"))
-            event_type = data.get("event")
-            payload = data.get("payload")
+            raw_data = value.decode("utf-8")
+            self._buffer += raw_data
 
-            if event_type == "SYNC_ALL":
-                logger.info(f"🔄 Sinkronisasi Full: {len(payload)} tugas diterima.")
-            
-            elif event_type == "UPDATE_TASK":
-                logger.info(f"✅ Update: Task {payload['id']} pindah ke {payload['column']}")
+            if self._buffer.endswith("\n"):
+                complete_data = self._buffer.strip()
+                data = json.loads(complete_data)
+                self._buffer = ""
 
+                event_type = data.get("event")
+                payload = data.get("payload")
+
+                if event_type == "SYNC_ALL":
+                    logger.info(f"🔄 Sinkronisasi Full: {len(payload)} tugas diterima.")
+                    for task in payload:
+                        print(f" - [{task['column']}] {task['name']}")
+                
+                elif event_type == "UPDATE_TASK":
+                    logger.info(f"✅ Update: Task {payload['id']} pindah ke {payload['column']}")
+
+        except json.JSONDecodeError:
+            pass
         except Exception as e:
             logger.error(f"Gagal parse data: {e}")
+            self._buffer = ""
 
     def on_read(self, characteristic_uuid: str) -> bytearray:
         return self.server.get_characteristic(self.char_uuid).value
