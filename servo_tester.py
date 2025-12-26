@@ -4,11 +4,9 @@ SERVO_PIN = 17
 
 servo = MoveServo(pin=SERVO_PIN)
 
-servo.default_move()
-
 while True:
     try:
-        angka = int(input("Masukkan angka (1-4): "))
+        angka = int(input("Masukkan angka (1-6): "))
 
         if angka == 1:
             print("Podomoro Hands Up for 180s")

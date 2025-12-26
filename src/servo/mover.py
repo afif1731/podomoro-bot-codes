@@ -14,8 +14,10 @@ class MoveServo:
         GPIO.setup(self.pin, GPIO.OUT)
         
         # SG90 beroperasi pada frekuensi 50Hz
-        self.pwm = GPIO.PWM(self.pin, 50) 
+        self.pwm = GPIO.PWM(self.pin, 50)
         self.pwm.start(0) # Mulai dengan duty cycle 0 (diam)
+        self._set_angle(180)
+        self.pwm.ChangeDutyCycle(0)
 
     def _set_angle(self, angle):
         """
@@ -23,7 +25,6 @@ class MoveServo:
         Rumus umum SG90: Duty Cycle = 2 + (Angle / 18)
         """
         duty = 2 + (angle / 18)
-        GPIO.output(self.pin, True)
         self.pwm.ChangeDutyCycle(duty)
         # Kita tidak mematikan output di sini agar gerakan halus terjaga
         # selama loop work/break move.
@@ -73,12 +74,13 @@ class MoveServo:
         print("Move to default")
         self._set_angle(180)
         time.sleep(0.5)
+        self.pwm.ChangeDutyCycle(0)
 
     def zero_move(self):
         """
         Bergerak ke 0 derajat
         """
-        print("Move to default")
+        print("Move to 0")
         self._set_angle(0)
         time.sleep(0.5)
 
