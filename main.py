@@ -30,7 +30,7 @@ POMODORO_CONF = {
 }
 
 # Preload Setup
-bot_bt = PodomoroBT(BT_UUID, BT_BUFFER_SIZE)
+bot_bt = PodomoroBT(BT_UUID)
 servo = MoveServo(pin=BOT_SERVO_PIN)
 cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
 
@@ -136,11 +136,12 @@ def main():
 
     # Connecting to Bluetooth
     display_face_fast("loading")
-    bot_bt.start_server()
+    # bot_bt.start_server()
     # Play Sound: Bluetooth Connected
 
     # Retrieve Data
-    response = bot_bt.get_podomoro_config()
+    # response = bot_bt.get_podomoro_config()
+    response = None
     if response is not None:
         POMODORO_CONF["work_time"] = response["work_time"]
         POMODORO_CONF["break_time"] = response["break_time"]
@@ -180,12 +181,12 @@ def main():
         # --- Idle Logic ---
         if bot_detection_status == "Idle":
             if is_pomodoro_timer_running is False and result["label"] == "start_pomodoro" and result["confidence"] > BOT_STATUS_CONF_THRESH:
-                current_task = bot_bt.get_most_recent_todo()
+                # current_task = bot_bt.get_most_recent_todo()
 
-                if current_task is None:
-                    continue
+                # if current_task is None:
+                #     continue
 
-                bot_bt.update_task_status(current_task["task_id"], "ONGOING")
+                # bot_bt.update_task_status(current_task["task_id"], "ONGOING")
                 
                 bot_detection_status = "Working"
                 is_pomodoro_timer_running = True
@@ -206,7 +207,7 @@ def main():
                     if result["label"] == "stop_pomodoro" and result["confidence"] > BOT_STATUS_CONF_THRESH:
                         print("[BOT] Stopping the pomodoro")
 
-                        bot_bt.update_task_status(current_task["task_id"], "TODO")
+                        # bot_bt.update_task_status(current_task["task_id"], "TODO")
 
                         bot_detection_status = "Idle"
                         is_pomodoro_timer_running = False
@@ -244,11 +245,11 @@ def main():
             if is_await_confirmation is True:
                 if confirmation_delay > 2 and confirmation_delay < 6:
                     if result["label"] == "stop_pomodoro" and result["confidence"] > BOT_STATUS_CONF_THRESH:
-                        bot_bt.update_task_status(current_task["task_id"], "TODO")
+                        # bot_bt.update_task_status(current_task["task_id"], "TODO")
                         print("task returned to todo")
 
                     if result["label"] == "start_pomodoro" and result["confidence"] > BOT_STATUS_CONF_THRESH:
-                        bot_bt.update_task_status(current_task["task_id"], "FINISHED")
+                        # bot_bt.update_task_status(current_task["task_id"], "FINISHED")
                         print("task updated to finished")
                     
                     bot_detection_status = "Idle"
@@ -286,6 +287,6 @@ if __name__ == "__main__":
 
     except KeyboardInterrupt:
         print("[BOT] Shutting Down...")
-        bot_bt.close_connection()
+        # bot_bt.close_connection()
         servo.cleanup()
         exit(1)
