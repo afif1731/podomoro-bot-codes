@@ -18,6 +18,12 @@ while True:
             print("Taunting")
             servo.taunt()
         elif angka == 4:
+            print("Move to 0")
+            servo.zero_move()
+        elif angka == 5:
+            print("Move to default")
+            servo.default_move()
+        elif angka == 6:
             print("Cleaned Up")
             servo.cleanup()
         else:

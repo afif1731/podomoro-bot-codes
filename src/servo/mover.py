@@ -34,14 +34,14 @@ class MoveServo:
         selama durasi yang ditentukan.
         """
         print(f"Starting work_move: 0 -> 180 degrees in {duration} seconds.")
-        start_angle = 0
-        end_angle = 180
+        start_angle = 180
+        end_angle = 0
         
         # Hitung delay per 1 derajat pergerakan
         # Jika duration 900 detik, delay per step adalah 900/180 = 5 detik
-        step_delay = duration / (end_angle - start_angle)
+        step_delay = duration / (start_angle - end_angle)
         
-        for angle in range(start_angle, end_angle + 1):
+        for angle in range(start_angle, end_angle - 1, -1):
             self._set_angle(angle)
             time.sleep(step_delay)
             
@@ -54,19 +54,27 @@ class MoveServo:
         selama durasi yang ditentukan.
         """
         print(f"Starting break_move: 180 -> 0 degrees in {duration} seconds.")
-        start_angle = 180
-        end_angle = 0
+        start_angle = 0
+        end_angle = 180
         
-        step_delay = duration / (start_angle - end_angle)
+        step_delay = duration / (end_angle - start_angle)
         
         # Loop mundur dari 180 ke 0
-        for angle in range(start_angle, end_angle - 1, -1):
+        for angle in range(start_angle, end_angle + 1):
             self._set_angle(angle)
             time.sleep(step_delay)
 
         self.pwm.ChangeDutyCycle(0)
 
     def default_move(self):
+        """
+        Bergerak ke 180 derajat
+        """
+        print("Move to default")
+        self._set_angle(180)
+        time.sleep(0.5)
+
+    def zero_move(self):
         """
         Bergerak ke 0 derajat
         """
@@ -84,8 +92,8 @@ class MoveServo:
         """
         print("Taunting!")
         center = 90
-        pos_high = center + 45  # 135 derajat
-        pos_low = center - 45   # 45 derajat
+        pos_high = center - 45  # 135 derajat
+        pos_low = center + 45   # 45 derajat
         
         for _ in range(2):
             # Gerak ke +45
@@ -97,7 +105,7 @@ class MoveServo:
             time.sleep(self.taunt_speed)
             
         # Kembali ke posisi idle
-        self._set_angle(0)
+        self._set_angle(180)
         time.sleep(0.8)
         self.pwm.ChangeDutyCycle(0)
 
