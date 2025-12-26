@@ -5,6 +5,7 @@ import psutil
 import threading
 import queue
 import json
+from datetime import datetime
 from collections import deque
 from dotenv import load_dotenv
 from websocket import create_connection
@@ -55,9 +56,11 @@ def inference_worker():
         try:
             conn = create_connection(DOCKER_WS_URL)
             print("websocket connected!")
+            tulis_log("websocket connected!")
             return conn
         except Exception as e:
             print(f"Failed to connect to Docker: {e}")
+            tulis_log(f"Failed to connect to Docker: {e}")
             return None
 
     while running:
@@ -82,6 +85,7 @@ def inference_worker():
             result_json = json.loads(result_str)
 
             print(f"cv result: {result_str}")
+            tulis_log(f"cv result: {result_str}")
             
             with result_lock:
                 latest_result['found'] = result_json['found']
@@ -90,6 +94,7 @@ def inference_worker():
 
             if result_json['found']:
                 print(f"Docker Detected: {result_json['label']} ({result_json['confidence']:.2f})")
+                tulis_log(f"Docker Detected: {result_json['label']} ({result_json['confidence']:.2f})")
                 label_detection_history.append({
                     "label": result_json['label'], 
                     "confidence": result_json['confidence']
@@ -106,6 +111,7 @@ def inference_worker():
             continue
         except Exception as e:
             print(f"Error in inference worker (WS): {e}")
+            tulis_log(f"Error in inference worker (WS): {e}")
             if ws:
                 try: ws.close() 
                 except: pass
@@ -120,7 +126,7 @@ class BotClassifier():
         self.process = psutil.Process(self.pid)
 
     def classifier_loop(self):
-        global status_detection_history, latest_result
+        global status_detection_history, latest_result, frame_queue
         
         ret, frame = self.cap.read()
         if not ret: return "Error", latest_result
@@ -133,6 +139,7 @@ class BotClassifier():
             self.frame_count = 0
             
             if frame_queue.empty():
+                print("frame queue is empty")
                 # Convert BGR (OpenCV) ke RGB
                 rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 
@@ -162,3 +169,15 @@ class BotClassifier():
         if distracted_count >= threshold:
             return "Distracted", latest_result
         return "Working", latest_result
+
+def tulis_log(pesan):
+    """
+    Menulis pesan ke file ./newlog.log dengan timestamp.
+    Format: [HH:MM:SS DD-mm-YYYY] pesan
+    """
+    sekarang = datetime.now()
+    
+    timestamp = sekarang.strftime("[%H:%M:%S %d-%m-%Y]")
+    
+    with open("./cvlog.log", "a", encoding="utf-8") as file:
+        file.write(f"{timestamp} {pesan}\n")
