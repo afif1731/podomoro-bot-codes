@@ -128,6 +128,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         top_conf = float(probs[top_idx])
 
                     raw_label = class_names[top_idx] if top_idx < len(class_names) else "Unknown"
+                    print(f"label detected: {raw_label}")
                     
                     response["found"] = True
                     response["label"] = raw_label
