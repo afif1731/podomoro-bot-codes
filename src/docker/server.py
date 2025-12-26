@@ -1,3 +1,9 @@
+import os
+import sys
+
+# --- FIX: Matikan NNPACK sebelum load torch ---
+os.environ["USE_NNPACK"] = "0"
+
 import cv2
 import torch
 import numpy as np
@@ -6,8 +12,6 @@ from ultralytics import YOLO
 from torchvision import transforms
 import torch.nn.functional as F
 from PIL import Image
-import os
-import sys
 
 sys.path.append("/app/external")
 
@@ -20,6 +24,7 @@ except ImportError:
 app = FastAPI()
 
 # -------- CONFIG & LOAD MODEL --------
+# Cek apakah menggunakan CUDA atau CPU
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 YOLO_WEIGHTS = "/app/external/model/yolo11n.pt"
 MODEL_WEIGHTS = "/app/external/model/densenet_har_nofreeze.pth"
@@ -47,10 +52,8 @@ else:
 
 num_classes = len(class_names)
 hidden1 = 640
-# hidden2 = 256
 dropout_rate = 0.31417882494899535
 
-# 3. Load HAR Model
 har_model = None
 try:
     har_model = ModelHAR(
@@ -85,6 +88,10 @@ async def websocket_endpoint(websocket: WebSocket):
             
             nparr = np.frombuffer(data, np.uint8)
             frame_rgb = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            if frame_rgb is None:
+                print("frame kosong / rusak")
+                continue
+                
             frame_rgb = cv2.cvtColor(frame_rgb, cv2.COLOR_BGR2RGB)
             
             frame_h, frame_w = frame_rgb.shape[:2]
@@ -108,6 +115,9 @@ async def websocket_endpoint(websocket: WebSocket):
                         if area > max_area:
                             max_area = area
                             best_box = [int(x1), int(y1), int(x2), int(y2)]
+
+            if best_box is None:
+                best_box = [0, 0, frame_w, frame_h]
 
             # B. Klasifikasi
             if best_box is not None and har_model is not None:
@@ -133,9 +143,6 @@ async def websocket_endpoint(websocket: WebSocket):
                     response["found"] = True
                     response["label"] = raw_label
                     response["confidence"] = top_conf
-
-            if best_box is None:
-                response["label"] = "yolo cant detect image"
 
             # Kirim hasil balik ke client
             await websocket.send_json(response)
