@@ -19,7 +19,7 @@ BOT_CONF_THRESH = float(os.getenv("BOT_CONF_THRESH", "0.25"))
 BOT_LABEL_CONF_THRESH = float(os.getenv("BOT_LABEL_CONF_THRESH", "0.6"))
 BOT_STATUS_CONF_THRESH = float(os.getenv("BOT_STATUS_CONF_THRESH", "0.85"))
 
-BOT_CAM_URL = os.getenv("CAM_URL", "http://10.238.183.49:81/stream")
+# BOT_CAM_URL = os.getenv("CAM_URL", "http://10.238.183.49:81/stream")
 
 BT_UUID = os.getenv("BT_UUID", "not-so-random-uuid")
 BT_BUFFER_SIZE = int(os.getenv("BT_BUFFER_SIZE", "1024"))
@@ -32,7 +32,7 @@ POMODORO_CONF = {
 # Preload Setup
 bot_bt = PodomoroBT(BT_UUID, BT_BUFFER_SIZE)
 servo = MoveServo(pin=BOT_SERVO_PIN)
-cap = cv2.VideoCapture(BOT_CAM_URL)
+cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
 
 bot_detection_status = "Idle" # Idle, Working, Break
 is_pomodoro_timer_running = False
