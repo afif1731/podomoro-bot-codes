@@ -1,4 +1,4 @@
-from src.expression.display_face_v2 import display_face_fast, preload_images
+from src.expression.display_face import display_face_fast, preload_images
 
 preload_images()
 
