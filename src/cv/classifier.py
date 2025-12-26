@@ -79,6 +79,8 @@ def inference_worker():
 
             result_str = ws.recv()
             result_json = json.loads(result_str)
+
+            print(f"cv result: {result_str}")
             
             with result_lock:
                 latest_result['found'] = result_json['found']
