@@ -133,6 +133,9 @@ async def websocket_endpoint(websocket: WebSocket):
                     response["label"] = raw_label
                     response["confidence"] = top_conf
 
+            if best_box is None:
+                response["label"] = "yolo cant detect image"
+
             # Kirim hasil balik ke client
             await websocket.send_json(response)
 
