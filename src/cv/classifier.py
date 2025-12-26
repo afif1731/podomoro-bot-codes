@@ -112,8 +112,8 @@ def inference_worker():
                 
                 result_json = json.loads(result_str)
 
-                # print(f"cv result: {result_str}")
-                # tulis_log(f"cv result: {result_str}") # Opsional: matikan agar log tidak penuh
+                print(f"cv result: {result_str}")
+                tulis_log(f"cv result: {result_str}")
                 
                 with result_lock:
                     latest_result['found'] = result_json['found']
