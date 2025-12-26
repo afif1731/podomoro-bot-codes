@@ -6,3 +6,4 @@ uvicorn
 opencv-python-headless
 numpy
 pillow
+websockets
