@@ -5,7 +5,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y libgl1 && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt --extra-index-url https://www.piwheels.org/simple
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY mobilenet_model.py .
 COPY server.py .
