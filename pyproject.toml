@@ -14,5 +14,5 @@ dependencies = [
     "pillow>=12.0.0",
     "python-dotenv",
     "rpi-lgpio",
-    "websockets",
+    "websocket-client",
 ]

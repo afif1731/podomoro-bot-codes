@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from src.servo.mover import MoveServo
 from src.expression.display_face import preload_images, display_face_fast
 from src.cv.classifier import BotClassifier, inference_worker
-from src.bt_function.bt_config import PodomoroBT
+from src.bt_function.bt_config_v2 import PodomoroBT
 
 load_dotenv()
 
