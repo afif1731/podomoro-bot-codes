@@ -120,6 +120,8 @@ class BotClassifier():
         self.process = psutil.Process(self.pid)
 
     def classifier_loop(self):
+        global status_detection_history, latest_result
+        
         ret, frame = self.cap.read()
         if not ret: return "Error", latest_result
         
