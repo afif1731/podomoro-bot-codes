@@ -54,6 +54,7 @@ def inference_worker():
     def connect_ws():
         try:
             conn = create_connection(DOCKER_WS_URL)
+            print("websocket connected!")
             return conn
         except Exception as e:
             print(f"Failed to connect to Docker: {e}")
@@ -152,7 +153,7 @@ class BotClassifier():
             # -------------
 
         if not status_detection_history:
-            return "Working", latest_result
+            return "Working - nothing detected", latest_result
 
         distracted_count = sum(1 for status in status_detection_history if status == "Distracted")
         threshold = len(status_detection_history) - 1
