@@ -179,5 +179,5 @@ def tulis_log(pesan):
     
     timestamp = sekarang.strftime("[%H:%M:%S %d-%m-%Y]")
     
-    with open("~/podomoro-bot-codes/cvlog.log", "a", encoding="utf-8") as file:
+    with open("/home/raspberry/podomoro-bot-codes/cvlog.log", "a", encoding="utf-8") as file:
         file.write(f"{timestamp} {pesan}\n")
